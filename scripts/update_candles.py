@@ -181,7 +181,7 @@ def render_svg(days, path):
         return round(pad_top + (hi - v) / rng * plot_h, 1)
 
     candle_w = W / n
-    body_w = round(max(candle_w * 0.6, 1.5), 1)
+    body_w = round(max(candle_w * 0.38, 1.2), 1)
 
     body_parts = []
     for i, (o, c) in enumerate(zip(opens, closes)):
