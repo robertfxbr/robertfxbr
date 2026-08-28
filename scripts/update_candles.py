@@ -154,15 +154,23 @@ def render_svg(days, path):
     # neutra" é a MÉDIA real do período (não um valor fixo), então o
     # nível oscila em torno da média em vez de derivar para um lado só
     # quando a atividade típica do período é bem diferente de ~5/dia.
+    #
+    # Movimentos de queda (dia abaixo da média) pesam metade do que os
+    # de alta (dia acima da média) — DOWN_WEIGHT abaixo — para que o
+    # gráfico tenda mais facilmente para uma tendência positiva.
     avg_count = sum(counts) / len(counts) if counts else 0.0
     cap = max(avg_count * 4, 10)  # outliers não distorcem o gráfico
     scale = 3.0
+    DOWN_WEIGHT = 0.5  # quedas valem metade do peso das altas
     level = 100.0
     levels = []  # (open, close) por dia
     for c in counts:
         o = level
         c_norm = min(c, cap)
-        close = o + (c_norm - avg_count) * scale * 0.15
+        delta = (c_norm - avg_count) * scale * 0.15
+        if delta < 0:
+            delta *= DOWN_WEIGHT
+        close = o + delta
         levels.append((o, close))
         level = close
 
