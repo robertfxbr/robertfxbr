@@ -5,10 +5,10 @@ commit-candles.svg no estilo MT5 (verde = mais contribuições que o dia
 anterior, vermelho = menos).
 
 Cada vela representa um dia, contando a partir de START_DATE (fixo, não
-uma janela móvel). A "abertura" de uma vela é o "fechamento" (nível
-acumulado suavizado) da vela anterior, para manter o efeito de gráfico
-contínuo. A altura do corpo reflete o número de contribuições daquele
-dia especificamente.
+uma janela móvel). A altura do corpo é proporcional ao número de
+contribuições daquele dia especificamente (relativo ao máximo do
+período), com uma altura mínima sempre visível — para que dias de baixa
+atividade não colapsem em um pontinho ilegível.
 
 Histórico persistido em candles-data.json (lista de {date, count}).
 """
@@ -138,56 +138,44 @@ def render_svg(days, path):
 
     counts = [d["count"] for d in days]
     n = len(days)
-
-    # "Preço" acumulado suavizado: cada dia soma sua contagem normalizada,
-    # dando o efeito de tendência contínua (open do dia = close do anterior).
-    scale = 3.0
-    level = 100.0
-    levels = []  # (open, close) por dia
-    for c in counts:
-        o = level
-        c_norm = min(c, 40)  # cap para não distorcer o gráfico com outliers
-        close = o + (c_norm - 5) * scale * 0.15  # ~5 contribs/dia = neutro
-        levels.append((o, close))
-        level = close
-
-    highs = []
-    lows = []
-    for i, (o, c) in enumerate(levels):
-        body_range = abs(c - o)
-        wick_extra = max(body_range * 0.4, scale * 0.5)
-        highs.append(max(o, c) + wick_extra * 0.6)
-        lows.append(min(o, c) - wick_extra * 0.6)
-
-    all_vals = [v for pair in levels for v in pair] + highs + lows
-    lo, hi = min(all_vals), max(all_vals)
-    rng = max(hi - lo, 1e-6)
+    max_count = max(counts) if counts else 0
 
     W, H = 900, 140
     pad_top, pad_bottom = 8, 8
     plot_h = H - pad_top - pad_bottom
+    baseline = H - pad_bottom  # todas as velas "nascem" da mesma linha de base
+    min_body_px = max(plot_h * 0.05, 4.0)  # altura mínima sempre visível
+    max_body_px = plot_h - min_body_px
 
-    def y(v):
-        return round(pad_top + (hi - v) / rng * plot_h, 1)
+    def body_height_for(count):
+        if max_count <= 0:
+            return min_body_px
+        frac = count / max_count
+        return round(min_body_px + frac * max_body_px, 1)
 
     candle_w = W / n
-    body_w = round(max(candle_w * 0.6, 1.2), 1)
+    body_w = round(max(candle_w * 0.6, 1.5), 1)
 
     body_parts = []
-    for i, ((o, c), h_, l_) in enumerate(zip(levels, highs, lows)):
+    prev_count = None
+    for i, count in enumerate(counts):
         x_center = round(i * candle_w + candle_w / 2, 1)
-        up = c >= o
+        # verde = mais contribuições que o dia anterior, vermelho = menos
+        # (o primeiro dia da série é neutro/verde por padrão)
+        up = prev_count is None or count >= prev_count
         color = "#26a69a" if up else "#ef5350"
-        y_open, y_close = y(o), y(c)
-        y_high, y_low = y(h_), y(l_)
-        body_top = min(y_open, y_close)
-        body_h = round(max(abs(y_close - y_open), 1.0), 1)
+        body_h = body_height_for(count)
+        body_top = round(baseline - body_h, 1)
+        wick_extra = round(max(body_h * 0.15, 2.0), 1)
+        y_high = round(body_top - wick_extra, 1)
+        y_low = round(baseline + wick_extra * 0.4, 1)
         x_left = round(x_center - body_w / 2, 1)
         body_parts.append(
             f'<line x1="{x_center}" y1="{y_high}" x2="{x_center}" y2="{y_low}" stroke="{color}"/>'
             f'<rect x="{x_left}" y="{body_top}" width="{body_w}" height="{body_h}" fill="{color}">'
-            f'<title>{days[i]["date"]}: {counts[i]} contribuições</title></rect>'
+            f'<title>{days[i]["date"]}: {count} contribuições</title></rect>'
         )
+        prev_count = count
     body_svg = "".join(body_parts)
 
     grid_parts = []
