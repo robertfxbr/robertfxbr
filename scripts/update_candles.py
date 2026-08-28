@@ -148,58 +148,55 @@ def render_svg(days, path):
     counts = [d["count"] for d in days]
     n = len(days)
 
-    # Nível de "preço" do dia = a própria contagem (compressão suave via
-    # raiz quadrada para outliers não dominarem o gráfico) — o gráfico
-    # oscila para cima e para baixo seguindo a atividade real, em vez de
-    # só acumular numa tendência. Continuidade real de candle: a abertura
-    # de um dia é o fechamento do dia anterior (média entre o nível
-    # anterior e o nível do próprio dia, suavizando a transição); o
-    # fechamento é o nível do dia. Amplitude mínima garante que nenhuma
-    # vela vire um pontinho.
-    def level_for(c):
-        return (min(c, 60) ** 0.5) if c > 0 else 0.0
+    # "Preço" acumulado suavizado: cada dia soma sua contagem normalizada,
+    # dando o efeito de tendência contínua (open do dia = close do
+    # anterior) — o mesmo estilo do mockup original aprovado. A "linha
+    # neutra" é a MÉDIA real do período (não um valor fixo), então o
+    # nível oscila em torno da média em vez de derivar para um lado só
+    # quando a atividade típica do período é bem diferente de ~5/dia.
+    avg_count = sum(counts) / len(counts) if counts else 0.0
+    cap = max(avg_count * 4, 10)  # outliers não distorcem o gráfico
+    scale = 3.0
+    level = 100.0
+    levels = []  # (open, close) por dia
+    for c in counts:
+        o = level
+        c_norm = min(c, cap)
+        close = o + (c_norm - avg_count) * scale * 0.15
+        levels.append((o, close))
+        level = close
 
-    levels = [level_for(c) for c in counts]
-    opens = []
-    closes = []
-    prev_level = levels[0]
-    for lv in levels:
-        opens.append(prev_level)
-        closes.append(lv)
-        prev_level = lv
+    highs = []
+    lows = []
+    for o, c in levels:
+        body_range = abs(c - o)
+        wick_extra = max(body_range * 0.4, scale * 0.5)
+        highs.append(max(o, c) + wick_extra * 0.6)
+        lows.append(min(o, c) - wick_extra * 0.6)
 
-    all_vals = opens + closes
+    all_vals = [v for pair in levels for v in pair] + highs + lows
     lo, hi = min(all_vals), max(all_vals)
     rng = max(hi - lo, 1e-6)
 
     W, H = 900, 140
-    pad_top, pad_bottom = 10, 10
+    pad_top, pad_bottom = 8, 8
     plot_h = H - pad_top - pad_bottom
-    min_body_px = max(plot_h * 0.04, 3.0)  # amplitude mínima sempre visível
 
     def y(v):
         return round(pad_top + (hi - v) / rng * plot_h, 1)
 
     candle_w = W / n
-    body_w = round(max(candle_w * 0.38, 1.2), 1)
+    body_w = round(max(candle_w * 0.6, 1.2), 1)
 
     body_parts = []
-    for i, (o, c) in enumerate(zip(opens, closes)):
+    for i, ((o, c), h_, l_) in enumerate(zip(levels, highs, lows)):
         x_center = round(i * candle_w + candle_w / 2, 1)
         up = c >= o
         color = "#26a69a" if up else "#ef5350"
         y_open, y_close = y(o), y(c)
+        y_high, y_low = y(h_), y(l_)
         body_top = min(y_open, y_close)
-        body_h = abs(y_close - y_open)
-        if body_h < min_body_px:
-            mid = (y_open + y_close) / 2
-            body_top = mid - min_body_px / 2
-            body_h = min_body_px
-        body_h = round(body_h, 1)
-        body_top = round(body_top, 1)
-        wick = round(max(body_h * 0.35, 2.5), 1)
-        y_high = round(body_top - wick, 1)
-        y_low = round(body_top + body_h + wick, 1)
+        body_h = round(max(abs(y_close - y_open), 1.0), 1)
         x_left = round(x_center - body_w / 2, 1)
         body_parts.append(
             f'<line x1="{x_center}" y1="{y_high}" x2="{x_center}" y2="{y_low}" stroke="{color}"/>'
