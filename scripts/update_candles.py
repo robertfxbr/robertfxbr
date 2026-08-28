@@ -147,44 +147,65 @@ def render_svg(days, path):
 
     counts = [d["count"] for d in days]
     n = len(days)
-    max_count = max(counts) if counts else 0
+
+    # Nível de "preço" do dia = a própria contagem (compressão suave via
+    # raiz quadrada para outliers não dominarem o gráfico) — o gráfico
+    # oscila para cima e para baixo seguindo a atividade real, em vez de
+    # só acumular numa tendência. Continuidade real de candle: a abertura
+    # de um dia é o fechamento do dia anterior (média entre o nível
+    # anterior e o nível do próprio dia, suavizando a transição); o
+    # fechamento é o nível do dia. Amplitude mínima garante que nenhuma
+    # vela vire um pontinho.
+    def level_for(c):
+        return (min(c, 60) ** 0.5) if c > 0 else 0.0
+
+    levels = [level_for(c) for c in counts]
+    opens = []
+    closes = []
+    prev_level = levels[0]
+    for lv in levels:
+        opens.append(prev_level)
+        closes.append(lv)
+        prev_level = lv
+
+    all_vals = opens + closes
+    lo, hi = min(all_vals), max(all_vals)
+    rng = max(hi - lo, 1e-6)
 
     W, H = 900, 140
-    pad_top, pad_bottom = 8, 8
+    pad_top, pad_bottom = 10, 10
     plot_h = H - pad_top - pad_bottom
-    baseline = H - pad_bottom  # todas as velas "nascem" da mesma linha de base
-    min_body_px = max(plot_h * 0.05, 4.0)  # altura mínima sempre visível
-    max_body_px = plot_h - min_body_px
+    min_body_px = max(plot_h * 0.04, 3.0)  # amplitude mínima sempre visível
 
-    def body_height_for(count):
-        if max_count <= 0:
-            return min_body_px
-        frac = count / max_count
-        return round(min_body_px + frac * max_body_px, 1)
+    def y(v):
+        return round(pad_top + (hi - v) / rng * plot_h, 1)
 
     candle_w = W / n
     body_w = round(max(candle_w * 0.6, 1.5), 1)
 
     body_parts = []
-    prev_count = None
-    for i, count in enumerate(counts):
+    for i, (o, c) in enumerate(zip(opens, closes)):
         x_center = round(i * candle_w + candle_w / 2, 1)
-        # verde = mais contribuições que o dia anterior, vermelho = menos
-        # (o primeiro dia da série é neutro/verde por padrão)
-        up = prev_count is None or count >= prev_count
+        up = c >= o
         color = "#26a69a" if up else "#ef5350"
-        body_h = body_height_for(count)
-        body_top = round(baseline - body_h, 1)
-        wick_extra = round(max(body_h * 0.15, 2.0), 1)
-        y_high = round(body_top - wick_extra, 1)
-        y_low = round(baseline + wick_extra * 0.4, 1)
+        y_open, y_close = y(o), y(c)
+        body_top = min(y_open, y_close)
+        body_h = abs(y_close - y_open)
+        if body_h < min_body_px:
+            mid = (y_open + y_close) / 2
+            body_top = mid - min_body_px / 2
+            body_h = min_body_px
+        body_h = round(body_h, 1)
+        body_top = round(body_top, 1)
+        wick = round(max(body_h * 0.35, 2.5), 1)
+        y_high = round(body_top - wick, 1)
+        y_low = round(body_top + body_h + wick, 1)
         x_left = round(x_center - body_w / 2, 1)
         body_parts.append(
             f'<line x1="{x_center}" y1="{y_high}" x2="{x_center}" y2="{y_low}" stroke="{color}"/>'
             f'<rect x="{x_left}" y="{body_top}" width="{body_w}" height="{body_h}" fill="{color}">'
-            f'<title>{days[i]["date"]}: {count} contribuições</title></rect>'
+            f'<title>{days[i]["date"]}: {counts[i]} contribuições</title></rect>'
         )
-        prev_count = count
     body_svg = "".join(body_parts)
 
     grid_parts = []
