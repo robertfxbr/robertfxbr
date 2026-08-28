@@ -51,12 +51,6 @@ Building useful things one project at a time.
 
 <div align="center">
 
-![GitHub Stats](https://github-readme-stats.vercel.app/api?username=robertfxbr&show_icons=true&theme=github_dark&hide_border=true&bg_color=0b0e14&title_color=26a69a&icon_color=f0b90b&text_color=d1d4dc)
-
-</div>
-
-<div align="center">
-
 ![footer](https://capsule-render.vercel.app/api?type=rect&color=0b0e14&height=40&section=footer&text=STATUS:%20ONLINE&fontColor=26a69a&fontSize=12&fontAlignY=60)
 
 </div>
