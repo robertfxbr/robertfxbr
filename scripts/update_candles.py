@@ -124,6 +124,15 @@ def merge_history(existing, fresh, start_date, max_days):
 
 
 def render_svg(days, path):
+    # Corta a sequência de dias com 0 contribuições que vem ANTES do
+    # primeiro dia com atividade real — evita um trecho inicial de velas
+    # mínimas repetidas (candles-data.json continua guardando tudo, isso
+    # só afeta o desenho). Se não houver nenhum dia com atividade ainda,
+    # mantém a lista como está (não teria o que cortar).
+    first_active = next((i for i, d in enumerate(days) if d["count"] > 0), None)
+    if first_active is not None:
+        days = days[first_active:]
+
     if not days:
         print("Nenhum dado de contribuição para desenhar (ainda).", file=sys.stderr)
         # escreve um SVG vazio em vez de deixar o arquivo antigo/inexistente
