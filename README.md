@@ -1,6 +1,6 @@
 <div align="center">
 
-![header](https://capsule-render.vercel.app/api?type=rect&color=0b0e14&height=90&section=header&text=ROBERTFXBR&fontColor=26a69a&fontSize=38&fontAlignY=55&desc=AI-AUTOMATION.DEV%20//%20MARKET%20OPEN&descColor=787b86&descAlignY=80&descSize=14&animation=fadeIn)
+<img src="https://raw.githubusercontent.com/robertfxbr/robertfxbr/main/banner-header.svg" width="100%" alt="header" />
 
 `AI automation` · `Trading systems` · `Python learner` · `Open-source enthusiast`
 Building useful things one project at a time.
@@ -51,6 +51,6 @@ Building useful things one project at a time.
 
 <div align="center">
 
-![footer](https://capsule-render.vercel.app/api?type=rect&color=0b0e14&height=40&section=footer&text=STATUS:%20ONLINE&fontColor=26a69a&fontSize=12&fontAlignY=60)
+<img src="https://raw.githubusercontent.com/robertfxbr/robertfxbr/main/banner-footer.svg" width="100%" alt="footer" />
 
 </div>
